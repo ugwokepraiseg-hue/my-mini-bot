@@ -507,7 +507,14 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
   }
 
   function getStatus() {
-    return { polling: running, username: botUsername, error: identityError, errorCode: lastErrorCode };
+    // "polling" means we are actually long-polling getUpdates, not merely that the
+    // retry loop is alive; an unverified identity means the bot is not online yet.
+    return {
+      polling: Boolean(running && botUsername && !identityError),
+      username: botUsername,
+      error: identityError,
+      errorCode: lastErrorCode,
+    };
   }
 
   return { start, stop, api, handleUpdate, getBotUsername: () => botUsername, getStatus };
