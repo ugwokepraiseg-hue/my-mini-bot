@@ -96,6 +96,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
   let offset = 0;
   let running = false;
   let botUsername = kvGet('bot_username') || null;
+  let identityError = null;
 
   async function api(method, payload = {}, timeoutMs = 20000) {
     const controller = new AbortController();
@@ -426,7 +427,12 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     const me = await api('getMe', {});
     if (me.ok && me.result?.username) {
       botUsername = me.result.username;
+      identityError = null;
       kvSet('bot_username', botUsername);
+      log(`[bot] token accepted by Telegram as @${botUsername}`);
+    } else {
+      identityError = me.description || 'Telegram rejected the bot token (getMe failed)';
+      log(`[bot] identity check failed: ${identityError}`);
     }
     await api('setMyCommands', {
       commands: [
@@ -465,7 +471,11 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     running = false;
   }
 
-  return { start, stop, api, handleUpdate, getBotUsername: () => botUsername };
+  function getStatus() {
+    return { polling: running, username: botUsername, error: identityError };
+  }
+
+  return { start, stop, api, handleUpdate, getBotUsername: () => botUsername, getStatus };
 }
 
 export function escapeHtml(value) {

@@ -29,7 +29,9 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(rootDir, 'public');
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
-const BOT_TOKEN = (process.env.BOT_TOKEN || '').trim();
+const BOT_TOKEN = String(
+  process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_TOKEN || '',
+).trim();
 const PREVIEW_MODE = !BOT_TOKEN;
 
 const MIME = {
@@ -180,6 +182,7 @@ async function handleApi(req, res, url) {
       botConfigured: Boolean(BOT_TOKEN),
       preview: PREVIEW_MODE,
       unit: UNIT,
+      bot: bot ? bot.getStatus() : { polling: false, username: null, error: null },
       time: new Date().toISOString(),
     });
   }
@@ -315,7 +318,7 @@ server.listen(PORT, HOST, () => {
 let bot = null;
 if (BOT_TOKEN) {
   bot = createBot({ token: BOT_TOKEN, getWebAppUrl });
-  bot.start().catch((error) => console.error('[bot] fatal', error));
+  bot.start().catch((error) => console.error('[bot] fatal', error.message || error));
 } else {
   console.log('[coinvera] BOT_TOKEN not set — bot polling disabled, Mini App runs in preview mode');
 }
