@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#05070a" />
+<meta name="description" content="COINVERA — Active rewards, tasks and referrals." />
+<title>COINVERA</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span></div>
+
+<div id="preview-banner" class="preview-banner hidden">
+  Preview mode — add <b>BOT_TOKEN</b> in Settings → Environment variables to connect the bot.
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">C</div>
+    <div class="brand-text">
+      <h1>COINVERA</h1>
+      <p id="brand-sub">Active rewards hub</p>
+    </div>
+  </div>
+  <button class="icon-btn hidden" id="back-btn" type="button" aria-label="Back">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+</header>
+
+<main class="main" id="main">
+  <div id="loading" class="loading">
+    <div class="skeleton hero"></div>
+    <div class="skeleton-row"><div class="skeleton tile"></div><div class="skeleton tile"></div></div>
+    <div class="skeleton line"></div>
+  </div>
+
+  <div id="auth-error" class="card auth-error hidden">
+    <h2>Open inside Telegram</h2>
+    <p id="auth-error-text">COINVERA verifies every account with Telegram. Launch the app from the bot to continue.</p>
+  </div>
+
+  <div id="views" class="views hidden">
+
+    <section class="view" id="view-home">
+      <p class="eyebrow">Welcome back</p>
+      <h2 class="greeting" id="home-name">COINVERA user</h2>
+
+      <div class="card hero">
+        <div class="hero-top">
+          <span class="chip">Active balance</span>
+          <span class="chip chip-gold" id="home-status">Active</span>
+        </div>
+        <div class="hero-value"><span id="home-balance">0</span><span class="unit">ACTIVE</span></div>
+        <p class="hero-sub"><span id="home-points">0</span> Active Points earned</p>
+        <div class="hero-actions">
+          <button class="btn gold" type="button" data-go="balance">Withdraw</button>
+          <button class="btn ghost" type="button" data-go="tasks">Earn more</button>
+        </div>
+      </div>
+
+      <div class="tiles">
+        <button class="tile" type="button" data-go="tasks">
+          <span class="tile-icon">🎯</span>
+          <span class="tile-title">Tasks</span>
+          <small id="tile-tasks">0 open</small>
+        </button>
+        <button class="tile" type="button" data-go="referral">
+          <span class="tile-icon">🤝</span>
+          <span class="tile-title">Invite</span>
+          <small id="tile-referrals">0 friends</small>
+        </button>
+        <button class="tile" type="button" data-go="wallet">
+          <span class="tile-icon">🔐</span>
+          <span class="tile-title">Wallet</span>
+          <small id="tile-wallet">Not linked</small>
+        </button>
+        <button class="tile" type="button" data-go="activity">
+          <span class="tile-icon">📜</span>
+          <span class="tile-title">Activity</span>
+          <small>Full history</small>
+        </button>
+        <button class="tile" type="button" data-go="walletinfo">
+          <span class="tile-icon">📊</span>
+          <span class="tile-title">Wallet info</span>
+          <small>How it works</small>
+        </button>
+        <button class="tile" type="button" data-go="help">
+          <span class="tile-icon">🆘</span>
+          <span class="tile-title">Help</span>
+          <small>Support 24/7</small>
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>Recent activity</h3>
+          <button class="link" type="button" data-go="activity">View all</button>
+        </div>
+        <ul class="list" id="home-activity"></ul>
+      </div>
+
+      <p class="fineprint">Active is your COINVERA reward balance. It is a reward unit, not fiat currency, and becomes withdrawable once you meet the activity requirement. Payout requests are reviewed before they reach your connected wallet.</p>
+    </section>
+
+    <section class="view" id="view-balance" hidden>
+      <p class="eyebrow">Wallet balance</p>
+      <h2 class="greeting">Active</h2>
+
+      <div class="card hero compact">
+        <div class="hero-value"><span id="balance-value">0</span><span class="unit">ACTIVE</span></div>
+        <p class="hero-sub">Available to withdraw</p>
+        <div class="hero-actions">
+          <button class="btn gold" type="button" id="withdraw-open">Request withdrawal</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Breakdown</h3></div>
+        <ul class="stats">
+          <li><span>Active balance</span><b id="balance-active">0</b></li>
+          <li><span>Active Points</span><b id="balance-points">0</b></li>
+          <li><span>Points from tasks</span><b id="balance-task-points">0</b></li>
+          <li><span>Minimum withdrawal</span><b id="balance-min">1,000</b></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Latest movements</h3><button class="link" type="button" data-go="activity">All</button></div>
+        <ul class="list" id="balance-activity"></ul>
+      </div>
+
+      <p class="fineprint">Withdrawals are paid to the wallet address you link. COINVERA never asks for a private key, password or recovery phrase.</p>
+    </section>
+
+    <section class="view" id="view-tasks" hidden>
+      <p class="eyebrow">Tasks &amp; rewards</p>
+      <h2 class="greeting">Earn Active Points</h2>
+      <p class="lead">Complete each task once. Duplicate claims are blocked automatically.</p>
+      <div class="task-list" id="task-list"></div>
+    </section>
+
+    <section class="view" id="view-referral" hidden>
+      <p class="eyebrow">Referral system</p>
+      <h2 class="greeting">Invite friends</h2>
+
+      <div class="card code-card">
+        <span class="chip chip-gold">Your referral code</span>
+        <div class="code" id="referral-code">—</div>
+        <div class="code-actions">
+          <button class="btn ghost" type="button" id="copy-code">Copy code</button>
+          <button class="btn gold" type="button" id="share-code">Share on Telegram</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Performance</h3></div>
+        <ul class="stats">
+          <li><span>Successful referrals</span><b id="referral-count">0</b></li>
+          <li><span>Points earned</span><b id="referral-points">0</b></li>
+          <li><span>Reward per friend</span><b>500 points</b></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Your network</h3></div>
+        <ul class="list" id="referral-list"></ul>
+      </div>
+    </section>
+
+    <section class="view" id="view-activity" hidden>
+      <p class="eyebrow">History</p>
+      <h2 class="greeting">Activity</h2>
+      <div class="card"><ul class="list" id="activity-list"></ul></div>
+    </section>
+
+    <section class="view" id="view-profile" hidden>
+      <p class="eyebrow">Account</p>
+      <h2 class="greeting">Profile</h2>
+
+      <div class="card profile-card">
+        <div class="avatar" id="profile-avatar">C</div>
+        <div class="profile-id">
+          <b id="profile-name">COINVERA user</b>
+          <span id="profile-username">@username</span>
+          <span class="chip chip-live" id="profile-status">Active</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <ul class="stats">
+          <li><span>Telegram ID</span><b id="profile-tgid">—</b></li>
+          <li><span>Active balance</span><b id="profile-balance">0</b></li>
+          <li><span>Active Points</span><b id="profile-points">0</b></li>
+          <li><span>Referral code</span><b id="profile-code">—</b></li>
+          <li><span>Joined</span><b id="profile-joined">—</b></li>
+          <li><span>Wallet</span><b id="profile-wallet">Not linked</b></li>
+        </ul>
+      </div>
+
+      <div class="stack">
+        <button class="btn ghost wide" type="button" data-go="wallet">Manage wallet</button>
+        <button class="btn ghost wide" type="button" data-go="help">Contact support</button>
+        <button class="btn gold wide hidden" type="button" data-go="admin" id="profile-admin">Open admin dashboard</button>
+      </div>
+    </section>
+
+    <section class="view" id="view-wallet" hidden>
+      <p class="eyebrow">Read-only linking</p>
+      <h2 class="greeting">Connect wallet</h2>
+
+      <div class="card notice">
+        <b>🔐 Your keys stay in your wallet</b>
+        <p>COINVERA links your <b>public address</b> only. It can receive funds and be looked up on a block explorer — it cannot move funds. We never ask for a private key, password or recovery phrase.</p>
+      </div>
+
+      <div class="card hidden" id="wallet-connected">
+        <div class="card-head"><h3>Linked wallet</h3><span class="chip chip-live">Read-only</span></div>
+        <div class="address" id="wallet-address">—</div>
+        <ul class="stats">
+          <li><span>Network</span><b id="wallet-network">—</b></li>
+          <li><span>Linked on</span><b id="wallet-since">—</b></li>
+        </ul>
+        <button class="btn ghost wide" type="button" id="wallet-disconnect">Disconnect wallet</button>
+      </div>
+
+      <form class="card hidden" id="wallet-form">
+        <div class="card-head"><h3>Link a public address</h3></div>
+        <label class="field">
+          <span>Wallet address</span>
+          <input id="wallet-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="0x… / EQ… / UQ… / T…" />
+        </label>
+        <label class="field">
+          <span>Network</span>
+          <select id="wallet-network-select">
+            <option value="EVM">Ethereum / BNB / Polygon</option>
+            <option value="TON">TON</option>
+            <option value="TRON">TRON</option>
+          </select>
+        </label>
+        <button class="btn gold wide" type="submit" id="wallet-submit">Connect wallet</button>
+        <p class="fineprint">Paste the address from your wallet app's Receive screen. Never paste a private key or recovery phrase anywhere.</p>
+      </form>
+
+      <button class="btn ghost wide" type="button" data-go="walletinfo">How secure connection works</button>
+    </section>
+
+    <section class="view" id="view-walletinfo" hidden>
+      <p class="eyebrow">Transparency</p>
+      <h2 class="greeting">Wallet information</h2>
+
+      <div class="card">
+        <h3>What COINVERA stores</h3>
+        <ul class="bullets">
+          <li>Your public wallet address</li>
+          <li>The network it belongs to</li>
+          <li>The date you linked it</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>What COINVERA never stores</h3>
+        <ul class="bullets danger">
+          <li>Private keys</li>
+          <li>Passwords, PINs or 2FA codes</li>
+          <li>Recovery phrases (12 or 24 words)</li>
+          <li>Any ability to sign transactions for you</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>What an address can and cannot do</h3>
+        <p class="body-text">A public address can receive funds and be inspected on a block explorer. It cannot move funds or approve transactions. Sharing it is like sharing an account number, not a password.</p>
+      </div>
+
+      <div class="card">
+        <h3>Removing it</h3>
+        <p class="body-text">Open Wallet → Disconnect. The address is deleted immediately and your Active balance stays untouched.</p>
+      </div>
+
+      <div class="card notice gold">
+        <b>⚠️ Three rules that protect you</b>
+        <ul class="bullets">
+          <li>A real wallet connection never asks you to type a recovery phrase into a chat or website.</li>
+          <li>Never sign a transaction you did not start yourself.</li>
+          <li>COINVERA will never message you first asking for keys, codes or a “validation” payment.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="view" id="view-help" hidden>
+      <p class="eyebrow">Support</p>
+      <h2 class="greeting">Help &amp; support</h2>
+
+      <form class="card" id="support-form">
+        <div class="card-head"><h3>Send a message</h3></div>
+        <label class="field">
+          <span>How can we help?</span>
+          <textarea id="support-input" rows="4" maxlength="2000" placeholder="Describe your issue…"></textarea>
+        </label>
+        <button class="btn gold wide" type="submit" id="support-submit">Send to support</button>
+      </form>
+
+      <div class="card">
+        <h3>Common questions</h3>
+        <ul class="faq">
+          <li><b>What is Active?</b><span>Active is your COINVERA reward balance. It is a reward unit, not fiat currency, and becomes withdrawable once you meet the activity requirement.</span></li>
+          <li><b>How do I earn?</b><span>Complete tasks once each, invite friends, and keep your profile complete.</span></li>
+          <li><b>Why was a task rejected?</b><span>Each task pays once. Requirements such as a linked wallet or an invited friend must be met first.</span></li>
+          <li><b>Do you need my seed phrase?</b><span>Never. Nobody legitimate does. Treat any such request as an attempt to steal your funds.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="view" id="view-admin" hidden>
+      <p class="eyebrow">Administrator</p>
+      <h2 class="greeting">Admin dashboard</h2>
+      <p class="lead" id="admin-id">Telegram ID 8463629333</p>
+
+      <div class="admin-grid" id="admin-grid"></div>
+
+      <div class="card">
+        <div class="card-head"><h3>Newest users</h3></div>
+        <ul class="list" id="admin-users"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Support messages</h3></div>
+        <ul class="list" id="admin-support"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Pending withdrawals</h3></div>
+        <ul class="list" id="admin-withdrawals"></ul>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<nav class="tabbar" id="tabbar">
+  <button class="tab" type="button" data-tab="home" aria-label="Home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="tab" type="button" data-tab="balance" aria-label="Balance">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg>
+    <span>Balance</span>
+  </button>
+  <button class="tab" type="button" data-tab="tasks" aria-label="Tasks">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>
+    <span>Tasks</span>
+  </button>
+  <button class="tab" type="button" data-tab="wallet" aria-label="Wallet">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><circle cx="17" cy="14.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+    <span>Wallet</span>
+  </button>
+  <button class="tab" type="button" data-tab="profile" aria-label="Profile">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c1.6-3.6 4.3-5.2 7.5-5.2s5.9 1.6 7.5 5.2"/></svg>
+    <span>Profile</span>
+  </button>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="sheet-wrap hidden" id="withdraw-sheet">
+  <div class="sheet-backdrop" data-close-sheet></div>
+  <form class="sheet" id="withdraw-form">
+    <div class="sheet-grab"></div>
+    <h3>Request withdrawal</h3>
+    <p class="lead" id="withdraw-hint">Minimum 1,000 Active.</p>
+    <label class="field">
+      <span>Amount (Active)</span>
+      <input id="withdraw-amount" type="number" min="0" step="50" inputmode="decimal" placeholder="1000" required />
+    </label>
+    <label class="field">
+      <span>Payout wallet address</span>
+      <input id="withdraw-address" type="text" autocomplete="off" spellcheck="false" placeholder="0x… / EQ… / UQ… / T…" />
+    </label>
+    <div class="sheet-actions">
+      <button class="btn ghost" type="button" data-close-sheet>Cancel</button>
+      <button class="btn gold" type="submit" id="withdraw-submit">Submit request</button>
+    </div>
+    <p class="fineprint">Requests are reviewed by the COINVERA team before payout. We never ask for a private key or recovery phrase.</p>
+  </form>
+</div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="app.js" type="module"></script>
+</body>
+</html>
