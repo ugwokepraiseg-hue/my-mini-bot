@@ -132,8 +132,10 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
       }
       return data;
     } catch (error) {
-      if (error.name !== 'AbortError') log(`[bot] ${method} error: ${error.message}`);
-      return { ok: false };
+      const reason = error.name === 'AbortError' ? 'request timed out' : error.message;
+      log(`[bot] ${method} network error: ${reason}`);
+      // Distinguish transport failures from a token Telegram actually rejected.
+      return { ok: false, description: `Network error contacting Telegram (${reason})`, network: true };
     } finally {
       clearTimeout(timer);
     }
