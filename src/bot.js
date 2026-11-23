@@ -98,8 +98,15 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
   let botUsername = kvGet('bot_username') || null;
   let identityError = null;
   let lastRetryAfter = 0;
+  let lastErrorCode = null;
+  let rateLimitUntil = 0;
+  let floodStrikes = 0;
 
   async function api(method, payload = {}, timeoutMs = 20000) {
+    // Single gate shared by every caller: while Telegram is throttling this bot,
+    // nothing may call the API early, or the flood window restarts.
+    const gate = rateLimitUntil - Date.now();
+    if (gate > 0) await sleep(gate);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -111,6 +118,15 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
       });
       const data = await response.json().catch(() => ({ ok: false }));
       lastRetryAfter = Number(data?.parameters?.retry_after) || 0;
+      lastErrorCode = data?.error_code || null;
+      if (data?.error_code === 429) {
+        floodStrikes = Math.min(floodStrikes + 1, 6);
+        const wait = Math.min(300, (lastRetryAfter || 3) * 2 ** (floodStrikes - 1));
+        rateLimitUntil = Date.now() + wait * 1000;
+        log(`[bot] flood wait ${wait}s (strike ${floodStrikes})`);
+      } else if (data?.ok) {
+        floodStrikes = 0;
+      }
       if (!data.ok && data.error_code !== 409) {
         log(`[bot] ${method} failed: ${data.description || response.status}`);
       }
@@ -448,33 +464,29 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
       log(`[bot] identity check failed (attempt ${attempt}): ${identityError}`);
       // A rejected token never becomes valid, so stop instead of hammering Telegram.
       if (me.error_code === 401 || me.error_code === 404) return false;
-      await sleep(lastRetryAfter ? (lastRetryAfter + 1) * 1000 : Math.min(20000, 1500 * attempt));
     }
     return false;
   }
 
-  async function refreshIdentity() {
-    // Recovers the bot identity in the background after a startup flood wait, so
-    // /api/health reports the real username without waiting for a restart.
-    while (running) {
-      await sleep(30000);
-      if (!running) return;
-      if (botUsername && !identityError) return;
-      if (await loadIdentity()) return;
-    }
-  }
-
   async function start() {
-    await loadIdentity();
     running = true;
-    if (!botUsername || identityError) void refreshIdentity();
-    log(`[bot] polling started${botUsername ? ` as @${botUsername}` : ''}`);
     while (running) {
+      if (!botUsername || identityError) {
+        const ok = await loadIdentity();
+        if (!ok) {
+          if (lastErrorCode === 401 || lastErrorCode === 404) {
+            log('[bot] Telegram rejected this token — polling disabled until a valid BOT_TOKEN is saved');
+            return;
+          }
+          // api() already waited out the flood window; retry the identity instead
+          // of polling, so we never add extra requests while throttled.
+          continue;
+        }
+        log(`[bot] polling started as @${botUsername}`);
+      }
       const response = await api('getUpdates', { offset, timeout: 25, allowed_updates: ['message', 'callback_query'] }, 35000);
       if (!response.ok) {
-        // Honour Telegram's flood wait; retrying every few seconds only extends it.
-        const retryAfter = Number(response.parameters?.retry_after) || 0;
-        await sleep(retryAfter ? (retryAfter + 1) * 1000 : 4000);
+        await sleep(lastErrorCode === 429 ? 1000 : 4000);
         continue;
       }
       for (const update of response.result || []) {
@@ -493,7 +505,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
   }
 
   function getStatus() {
-    return { polling: running, username: botUsername, error: identityError };
+    return { polling: running, username: botUsername, error: identityError, errorCode: lastErrorCode };
   }
 
   return { start, stop, api, handleUpdate, getBotUsername: () => botUsername, getStatus };
