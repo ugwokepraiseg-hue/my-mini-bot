@@ -97,6 +97,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
   let running = false;
   let botUsername = kvGet('bot_username') || null;
   let identityError = null;
+  let lastRetryAfter = 0;
 
   async function api(method, payload = {}, timeoutMs = 20000) {
     const controller = new AbortController();
@@ -109,6 +110,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
         signal: controller.signal,
       });
       const data = await response.json().catch(() => ({ ok: false }));
+      lastRetryAfter = Number(data?.parameters?.retry_after) || 0;
       if (!data.ok && data.error_code !== 409) {
         log(`[bot] ${method} failed: ${data.description || response.status}`);
       }
@@ -424,36 +426,55 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
   }
 
   async function loadIdentity() {
-    const me = await api('getMe', {});
-    if (me.ok && me.result?.username) {
-      botUsername = me.result.username;
-      identityError = null;
-      kvSet('bot_username', botUsername);
-      log(`[bot] token accepted by Telegram as @${botUsername}`);
-    } else {
+    const commands = [
+      { command: 'start', description: 'Open COINVERA' },
+      { command: 'home', description: 'Home dashboard' },
+      { command: 'balance', description: 'Active balance' },
+      { command: 'profile', description: 'Your profile' },
+      { command: 'connect', description: 'Connect wallet securely' },
+      { command: 'help', description: 'Help and support' },
+    ];
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const me = await api('getMe', {});
+      if (me.ok && me.result?.username) {
+        botUsername = me.result.username;
+        identityError = null;
+        kvSet('bot_username', botUsername);
+        log(`[bot] token accepted by Telegram as @${botUsername}`);
+        await api('setMyCommands', { commands });
+        return true;
+      }
       identityError = me.description || 'Telegram rejected the bot token (getMe failed)';
-      log(`[bot] identity check failed: ${identityError}`);
+      log(`[bot] identity check failed (attempt ${attempt}): ${identityError}`);
+      // A rejected token never becomes valid, so stop instead of hammering Telegram.
+      if (me.error_code === 401 || me.error_code === 404) return false;
+      await sleep(lastRetryAfter ? (lastRetryAfter + 1) * 1000 : Math.min(20000, 1500 * attempt));
     }
-    await api('setMyCommands', {
-      commands: [
-        { command: 'start', description: 'Open COINVERA' },
-        { command: 'home', description: 'Home dashboard' },
-        { command: 'balance', description: 'Active balance' },
-        { command: 'profile', description: 'Your profile' },
-        { command: 'connect', description: 'Connect wallet securely' },
-        { command: 'help', description: 'Help and support' },
-      ],
-    });
+    return false;
+  }
+
+  async function refreshIdentity() {
+    // Recovers the bot identity in the background after a startup flood wait, so
+    // /api/health reports the real username without waiting for a restart.
+    while (running) {
+      await sleep(30000);
+      if (!running) return;
+      if (botUsername && !identityError) return;
+      if (await loadIdentity()) return;
+    }
   }
 
   async function start() {
     await loadIdentity();
     running = true;
+    if (!botUsername || identityError) void refreshIdentity();
     log(`[bot] polling started${botUsername ? ` as @${botUsername}` : ''}`);
     while (running) {
       const response = await api('getUpdates', { offset, timeout: 25, allowed_updates: ['message', 'callback_query'] }, 35000);
       if (!response.ok) {
-        await sleep(4000);
+        // Honour Telegram's flood wait; retrying every few seconds only extends it.
+        const retryAfter = Number(response.parameters?.retry_after) || 0;
+        await sleep(retryAfter ? (retryAfter + 1) * 1000 : 4000);
         continue;
       }
       for (const update of response.result || []) {
