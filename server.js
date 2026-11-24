@@ -45,13 +45,29 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 
+// A Host header can be an internal Docker address (for example 172.19.0.88:3000)
+// when the platform probes the container directly. Telegram would then try to open a
+// private IP that no phone can reach, which looks exactly like "the Mini App never
+// opens". Private, loopback and container-only hosts are therefore never advertised.
+const PRIVATE_HOST = /^(localhost|0\.0\.0\.0|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$|\[?f[cd][0-9a-f]{2}:)/i;
+
+function isPublicHost(host) {
+  const name = String(host || '').trim().toLowerCase();
+  if (!name) return false;
+  const bare = name.replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
+  if (!bare) return false;
+  if (PRIVATE_HOST.test(bare)) return false;
+  if (/\.(internal|local|localhost|svc)$/.test(bare)) return false;
+  // A reachable Mini App host is a real domain or a public IP, so it has a dot.
+  return bare.includes('.');
+}
+
 function publicOrigin(req) {
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || '');
-  if (!host) return null;
-  if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/i.test(host)) return null;
+  if (!isPublicHost(host)) return null;
   // Telegram refuses to open a Mini App over http://, and the platform terminates
   // TLS in front of us, so a public host is always advertised as https.
-  return `https://${host}`;
+  return `https://${host.replace(/:\d+$/, '')}`;
 }
 
 // Last-resort public address: a fresh database has not seen a request yet, and a
@@ -63,7 +79,11 @@ function getWebAppUrl() {
   const configured = (process.env.WEBAPP_URL || process.env.PUBLIC_URL || '').trim();
   if (configured) return configured.replace(/\/+$/, '');
   const observed = kvGet('public_origin');
-  if (observed && observed.startsWith('https://')) return observed.replace(/\/+$/, '');
+  if (observed && observed.startsWith('https://') && isPublicHost(observed.replace(/^https:\/\//, ''))) {
+    return observed.replace(/\/+$/, '');
+  }
+  // Drop a value poisoned by an internal probe so it is never advertised again.
+  if (observed) kvSet('public_origin', '');
   return DEFAULT_WEBAPP_URL;
 }
 
