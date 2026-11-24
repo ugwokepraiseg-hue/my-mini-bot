@@ -417,7 +417,7 @@ async function claimTask(code, button) {
     }
     const map = {
       already_completed: 'This task is already completed.',
-      requirement_wallet: 'Wallet linking happens in the bot — open it and tap 🔐 Connect Wallet.'
+      requirement_wallet: 'Wallet linking happens in the bot — open it and tap 🔐 Connect Wallet.',
       requirement_referral: 'Invite at least one friend first.',
       requirement_profile: 'Complete your Telegram profile first.',
       task_not_found: 'That task is no longer available.',
