@@ -431,27 +431,6 @@ async function claimTask(code, button) {
   }
 }
 
-async function sendSupport(event) {
-  event.preventDefault();
-  const input = $('support-input');
-  const message = input.value.trim();
-  if (!message) { toast('Write your message first.', true); return; }
-  if (state.busy) return;
-  state.busy = true;
-  $('support-submit').disabled = true;
-  try {
-    await api('/api/support', { method: 'POST', body: { message } });
-    input.value = '';
-    haptic('success');
-    toast('Message sent. Support will reply in the bot.');
-  } catch {
-    toast('Could not send your message.', true);
-  } finally {
-    state.busy = false;
-    $('support-submit').disabled = false;
-  }
-}
-
 async function submitWithdrawal(event) {
   event.preventDefault();
   if (state.busy) return;
@@ -546,7 +525,6 @@ function wireEvents() {
   $('back-btn').addEventListener('click', () => showView('home'));
   $('withdraw-open').addEventListener('click', openSheet);
   $('withdraw-form').addEventListener('submit', submitWithdrawal);
-  $('support-form').addEventListener('submit', sendSupport);
   $('copy-code').addEventListener('click', copyCode);
   $('share-code').addEventListener('click', shareCode);
   document.addEventListener('keydown', (event) => {
@@ -579,7 +557,7 @@ async function boot() {
     }
     render();
     const fromHash = window.location.hash.replace(/^#/, '');
-    showView(TABS.concat(['referral', 'activity', 'walletinfo', 'help']).includes(fromHash) ? fromHash : 'home', { push: false });
+    showView(TABS.concat(['referral', 'activity']).includes(fromHash) ? fromHash : 'home', { push: false });
   } catch (error) {
     if (error.status === 401 && state.initData && !boot.guestRetry) {
       // Telegram sign-in could not be verified (for example the bot domain is

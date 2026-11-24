@@ -84,16 +84,6 @@
           <span class="tile-title">Activity</span>
           <small>Full history</small>
         </button>
-        <button class="tile" type="button" data-go="walletinfo">
-          <span class="tile-icon">📊</span>
-          <span class="tile-title">Wallet info</span>
-          <small>How it works</small>
-        </button>
-        <button class="tile" type="button" data-go="help">
-          <span class="tile-icon">🆘</span>
-          <span class="tile-title">Help</span>
-          <small>Support 24/7</small>
-        </button>
       </div>
 
       <div class="card">
@@ -203,75 +193,7 @@
       </div>
 
       <div class="stack">
-        <button class="btn ghost wide" type="button" data-go="help">Contact support</button>
         <button class="btn gold wide hidden" type="button" data-go="admin" id="profile-admin">Open admin dashboard</button>
-      </div>
-    </section>
-
-    <section class="view" id="view-walletinfo" hidden>
-      <p class="eyebrow">Transparency</p>
-      <h2 class="greeting">Wallet information</h2>
-
-      <div class="card">
-        <h3>What COINVERA stores</h3>
-        <ul class="bullets">
-          <li>Your public wallet address</li>
-          <li>The network it belongs to</li>
-          <li>The date you linked it</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h3>What COINVERA never stores</h3>
-        <ul class="bullets danger">
-          <li>Private keys</li>
-          <li>Passwords, PINs or 2FA codes</li>
-          <li>Recovery phrases (12 or 24 words)</li>
-          <li>Any ability to sign transactions for you</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h3>What an address can and cannot do</h3>
-        <p class="body-text">A public address can receive funds and be inspected on a block explorer. It cannot move funds or approve transactions. Sharing it is like sharing an account number, not a password.</p>
-      </div>
-
-      <div class="card">
-        <h3>Linking and removing</h3>
-        <p class="body-text">Wallet linking is handled only inside the Telegram bot — it is not available inside this Mini App. Open the bot and tap <b>🔐 Connect Wallet</b> to link an address, or to disconnect it. The address is deleted immediately and your Active balance stays untouched.</p>
-      </div>
-
-      <div class="card notice gold">
-        <b>⚠️ Three rules that protect you</b>
-        <ul class="bullets">
-          <li>A real wallet connection never asks you to type a recovery phrase into a chat or website.</li>
-          <li>Never sign a transaction you did not start yourself.</li>
-          <li>COINVERA will never message you first asking for keys, codes or a “validation” payment.</li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="view" id="view-help" hidden>
-      <p class="eyebrow">Support</p>
-      <h2 class="greeting">Help &amp; support</h2>
-
-      <form class="card" id="support-form">
-        <div class="card-head"><h3>Send a message</h3></div>
-        <label class="field">
-          <span>How can we help?</span>
-          <textarea id="support-input" rows="4" maxlength="2000" placeholder="Describe your issue…"></textarea>
-        </label>
-        <button class="btn gold wide" type="submit" id="support-submit">Send to support</button>
-      </form>
-
-      <div class="card">
-        <h3>Common questions</h3>
-        <ul class="faq">
-          <li><b>What is Active?</b><span>Active is your COINVERA reward balance. It is a reward unit, not fiat currency, and becomes withdrawable once you meet the activity requirement.</span></li>
-          <li><b>How do I earn?</b><span>Complete tasks once each, invite friends, and keep your profile complete.</span></li>
-          <li><b>Why was a task rejected?</b><span>Each task pays once. Requirements such as a linked wallet or an invited friend must be met first.</span></li>
-          <li><b>Do you need my seed phrase?</b><span>Never. Nobody legitimate does. Treat any such request as an attempt to steal your funds.</span></li>
-        </ul>
       </div>
     </section>
 
