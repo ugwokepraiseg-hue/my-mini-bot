@@ -134,7 +134,8 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
         floodStrikes = 0;
       }
       if (!data.ok && data.error_code !== 409) {
-        log(`[bot] ${method} failed: ${data.description || response.status}`);
+        const target = payload.chat_id ? ` chat=${payload.chat_id}` : '';
+        log(`[bot] ${method} failed:${target} ${data.description || response.status}`);
       }
       return data;
     } catch (error) {
@@ -174,11 +175,16 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
 
   async function ensureMenuButton(chatId) {
     const url = webAppUrl();
-    if (!url.startsWith('https://')) return;
-    await api('setChatMenuButton', {
+    if (!url.startsWith('https://')) {
+      log(`[bot] menu button skipped — Mini App URL is not https (${url})`);
+      return;
+    }
+    const result = await api('setChatMenuButton', {
       chat_id: chatId,
       menu_button: { type: 'web_app', text: 'COINVERA', web_app: { url } },
     });
+    if (result.ok) log(`[bot] menu button accepted → ${url}`);
+    else log(`[bot] menu button REJECTED → ${url} (${result.description || 'unknown'})`);
   }
 
   async function register(profile, referralCode) {
@@ -529,6 +535,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
           continue;
         }
         log(`[bot] polling started as @${botUsername}`);
+        log(`[bot] Mini App URL advertised: ${getWebAppUrl()}`);
         // A webhook left behind by another host would compete for these updates.
         const hook = await api('deleteWebhook', { drop_pending_updates: false });
         if (hook.ok) log('[bot] webhook cleared — this deployment owns the updates');
@@ -545,6 +552,12 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
         if (seenUpdates.has(updateId)) continue;
         seenUpdates.add(updateId);
         if (seenUpdates.size > 400) seenUpdates.delete(seenUpdates.values().next().value);
+        const from = update.message?.from || update.callback_query?.from || null;
+        const chatId = update.message?.chat?.id || update.callback_query?.message?.chat?.id || null;
+        const kind = update.callback_query
+          ? `callback:${update.callback_query.data}`
+          : `text:${String(update.message?.text || '').slice(0, 40)}`;
+        log(`[bot] update ${updateId} from=${from?.id || '?'} @${from?.username || '-'} chat=${chatId || '?'} ${kind}`);
         try {
           await handleUpdate(update);
         } catch (error) {
