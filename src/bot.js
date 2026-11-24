@@ -148,7 +148,18 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
   }
 
   const webAppUrl = () => getWebAppUrl();
-  const webAppButton = (label = '🚀 OPEN COINVERA') => ({ inline_keyboard: [[{ text: label, web_app: { url: webAppUrl() } }]] });
+  // The web_app button opens the Mini App inside Telegram. The plain url button is a
+  // guaranteed fallback: it opens the same page in the device browser even if the
+  // client refuses the Mini App (for example before the bot domain is registered).
+  const webAppButton = (label = '🚀 OPEN COINVERA') => {
+    const url = webAppUrl();
+    return {
+      inline_keyboard: [
+        [{ text: label, web_app: { url } }],
+        [{ text: '🌐 Open in browser', url }],
+      ],
+    };
+  };
   const keyboard = () => menuKeyboard(webAppUrl());
 
   async function sendMessage(chatId, text, extra = {}) {
@@ -372,19 +383,44 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     ].join('\n'), { reply_markup: webAppButton('🛡 Open admin') });
   }
 
+  // Returns an explicit boolean. A handler that resolves to undefined must still count
+  // as handled — otherwise the same message also falls through to the support inbox and
+  // the user receives a second, unwanted "Message received" reply.
   async function routeMenu(chatId, from, text) {
     const normalized = normalize(text);
-    if (normalized === 'home' || normalized === 'start' || normalized === 'menu') return handleHome(chatId, from);
-    if (normalized === 'balance') return handleBalance(chatId, from);
-    if (normalized === 'profile') return handleProfile(chatId, from);
-    if (normalized === 'connect wallet' || normalized === 'connect' || normalized === 'wallet') return handleConnectWallet(chatId);
-    if (normalized === 'wallet information' || normalized === 'wallet info') return handleWalletInformation(chatId);
-    if (normalized === 'help' || normalized === 'support') return handleHelp(chatId);
-    if (normalized === 'admin' || normalized === 'dashboard') return handleAdmin(chatId, from);
-    if (normalized === 'open coinvera' || normalized === 'open app' || normalized === 'launch') {
-      return sendMessage(chatId, '🚀 Tap below to launch COINVERA.', { reply_markup: webAppButton() });
+    if (normalized === 'home' || normalized === 'start' || normalized === 'menu') {
+      await handleHome(chatId, from);
+      return true;
     }
-    return null;
+    if (normalized === 'balance') {
+      await handleBalance(chatId, from);
+      return true;
+    }
+    if (normalized === 'profile') {
+      await handleProfile(chatId, from);
+      return true;
+    }
+    if (normalized === 'connect wallet' || normalized === 'connect' || normalized === 'wallet') {
+      await handleConnectWallet(chatId);
+      return true;
+    }
+    if (normalized === 'wallet information' || normalized === 'wallet info') {
+      await handleWalletInformation(chatId);
+      return true;
+    }
+    if (normalized === 'help' || normalized === 'support') {
+      await handleHelp(chatId);
+      return true;
+    }
+    if (normalized === 'admin' || normalized === 'dashboard') {
+      await handleAdmin(chatId, from);
+      return true;
+    }
+    if (normalized === 'open coinvera' || normalized === 'open app' || normalized === 'launch') {
+      await sendMessage(chatId, '🚀 Tap below to launch COINVERA.', { reply_markup: webAppButton() });
+      return true;
+    }
+    return false;
   }
 
   async function handleMessage(message) {
