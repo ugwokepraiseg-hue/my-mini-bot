@@ -111,11 +111,11 @@ export const TASK_SEED = [
   },
   {
     code: 'connect_wallet',
-    title: 'Connect your wallet',
-    description: 'Link a public wallet address so Active rewards can reach you.',
+    title: 'Link your wallet in the bot',
+    description: 'Wallet linking is done only in the Telegram bot. Tap 🔐 Connect Wallet there to link a public address so Active rewards can reach you.',
     reward_points: 500,
     requirement: 'wallet',
-    action_label: 'Connect wallet',
+    action_label: 'Claim reward',
     sort_order: 2,
   },
   {
