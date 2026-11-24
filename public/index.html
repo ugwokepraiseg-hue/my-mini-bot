@@ -79,11 +79,6 @@
           <span class="tile-title">Invite</span>
           <small id="tile-referrals">0 friends</small>
         </button>
-        <button class="tile" type="button" data-go="wallet">
-          <span class="tile-icon">🔐</span>
-          <span class="tile-title">Wallet</span>
-          <small id="tile-wallet">Not linked</small>
-        </button>
         <button class="tile" type="button" data-go="activity">
           <span class="tile-icon">📜</span>
           <span class="tile-title">Activity</span>
@@ -208,50 +203,9 @@
       </div>
 
       <div class="stack">
-        <button class="btn ghost wide" type="button" data-go="wallet">Manage wallet</button>
         <button class="btn ghost wide" type="button" data-go="help">Contact support</button>
         <button class="btn gold wide hidden" type="button" data-go="admin" id="profile-admin">Open admin dashboard</button>
       </div>
-    </section>
-
-    <section class="view" id="view-wallet" hidden>
-      <p class="eyebrow">Read-only linking</p>
-      <h2 class="greeting">Connect wallet</h2>
-
-      <div class="card notice">
-        <b>🔐 Your keys stay in your wallet</b>
-        <p>COINVERA links your <b>public address</b> only. It can receive funds and be looked up on a block explorer — it cannot move funds. We never ask for a private key, password or recovery phrase.</p>
-      </div>
-
-      <div class="card hidden" id="wallet-connected">
-        <div class="card-head"><h3>Linked wallet</h3><span class="chip chip-live">Read-only</span></div>
-        <div class="address" id="wallet-address">—</div>
-        <ul class="stats">
-          <li><span>Network</span><b id="wallet-network">—</b></li>
-          <li><span>Linked on</span><b id="wallet-since">—</b></li>
-        </ul>
-        <button class="btn ghost wide" type="button" id="wallet-disconnect">Disconnect wallet</button>
-      </div>
-
-      <form class="card hidden" id="wallet-form">
-        <div class="card-head"><h3>Link a public address</h3></div>
-        <label class="field">
-          <span>Wallet address</span>
-          <input id="wallet-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="0x… / EQ… / UQ… / T…" />
-        </label>
-        <label class="field">
-          <span>Network</span>
-          <select id="wallet-network-select">
-            <option value="EVM">Ethereum / BNB / Polygon</option>
-            <option value="TON">TON</option>
-            <option value="TRON">TRON</option>
-          </select>
-        </label>
-        <button class="btn gold wide" type="submit" id="wallet-submit">Connect wallet</button>
-        <p class="fineprint">Paste the address from your wallet app's Receive screen. Never paste a private key or recovery phrase anywhere.</p>
-      </form>
-
-      <button class="btn ghost wide" type="button" data-go="walletinfo">How secure connection works</button>
     </section>
 
     <section class="view" id="view-walletinfo" hidden>
@@ -283,8 +237,8 @@
       </div>
 
       <div class="card">
-        <h3>Removing it</h3>
-        <p class="body-text">Open Wallet → Disconnect. The address is deleted immediately and your Active balance stays untouched.</p>
+        <h3>Linking and removing</h3>
+        <p class="body-text">Wallet linking is handled only inside the Telegram bot — it is not available inside this Mini App. Open the bot and tap <b>🔐 Connect Wallet</b> to link an address, or to disconnect it. The address is deleted immediately and your Active balance stays untouched.</p>
       </div>
 
       <div class="card notice gold">
@@ -359,10 +313,6 @@
   <button class="tab" type="button" data-tab="tasks" aria-label="Tasks">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>
     <span>Tasks</span>
-  </button>
-  <button class="tab" type="button" data-tab="wallet" aria-label="Wallet">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><circle cx="17" cy="14.5" r="1.2" fill="currentColor" stroke="none"/></svg>
-    <span>Wallet</span>
   </button>
   <button class="tab" type="button" data-tab="profile" aria-label="Profile">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c1.6-3.6 4.3-5.2 7.5-5.2s5.9 1.6 7.5 5.2"/></svg>

@@ -1,6 +1,6 @@
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 
-const TABS = ['home', 'balance', 'tasks', 'wallet', 'profile'];
+const TABS = ['home', 'balance', 'tasks', 'profile'];
 const state = {
   data: null,
   view: 'home',
@@ -341,7 +341,6 @@ function render() {
   const openTasks = (state.data.tasks || []).filter((t) => !t.completed).length;
   $('tile-tasks').textContent = openTasks ? `${openTasks} open` : 'All done';
   $('tile-referrals').textContent = `${fmt(state.data.referrals.count)} friend${state.data.referrals.count === 1 ? '' : 's'}`;
-  $('tile-wallet').textContent = user.walletAddress ? 'Linked' : 'Not linked';
 
   // balance
   $('balance-value').textContent = fmt(user.activeBalance);
@@ -371,16 +370,6 @@ function render() {
     ? `${user.walletAddress.slice(0, 6)}…${user.walletAddress.slice(-4)}`
     : 'Not linked';
   $('profile-admin').classList.toggle('hidden', !user.isAdmin);
-
-  // wallet
-  const connected = Boolean(user.walletAddress);
-  $('wallet-connected').classList.toggle('hidden', !connected);
-  $('wallet-form').classList.toggle('hidden', connected);
-  if (connected) {
-    $('wallet-address').textContent = user.walletAddress;
-    $('wallet-network').textContent = user.walletNetwork || '—';
-    $('wallet-since').textContent = shortDate(user.walletConnectedAt);
-  }
 
   // withdrawal sheet hint
   $('withdraw-hint').textContent = `Minimum ${fmt(config.minWithdrawal)} Active. Available ${fmt(user.activeBalance)} Active.`;
@@ -428,64 +417,17 @@ async function claimTask(code, button) {
     }
     const map = {
       already_completed: 'This task is already completed.',
-      requirement_wallet: 'Link a wallet first, then claim this task.',
+      requirement_wallet: 'Wallet linking happens in the bot — open it and tap 🔐 Connect Wallet.'
       requirement_referral: 'Invite at least one friend first.',
       requirement_profile: 'Complete your Telegram profile first.',
       task_not_found: 'That task is no longer available.',
     };
     haptic('error');
     toast(map[error.message] || 'Could not claim this task right now.', true);
-    if (error.message === 'requirement_wallet') showView('wallet');
     if (error.message === 'requirement_referral') showView('referral');
   } finally {
     state.busy = false;
     button.disabled = false;
-  }
-}
-
-async function connectWallet(event) {
-  event.preventDefault();
-  if (state.busy) return;
-  const address = $('wallet-input').value.trim();
-  const network = $('wallet-network-select').value;
-  if (!address) { toast('Enter your wallet address first.', true); return; }
-
-  state.busy = true;
-  $('wallet-submit').disabled = true;
-  try {
-    const result = await api('/api/wallet/connect', { method: 'POST', body: { address, network } });
-    state.data = result;
-    $('wallet-input').value = '';
-    render();
-    haptic('success');
-    toast('Wallet linked (read-only). Your keys never left your wallet.');
-  } catch (error) {
-    const map = {
-      address_invalid: 'That does not look like a valid wallet address.',
-      address_missing: 'Enter your wallet address.',
-      looks_like_secret: 'That looks like a private key or recovery phrase. COINVERA never accepts those — please remove it from your clipboard and keep it secret.',
-    };
-    haptic('error');
-    toast(map[error.message] || 'Could not link that address.', true);
-  } finally {
-    state.busy = false;
-    $('wallet-submit').disabled = false;
-  }
-}
-
-async function disconnectWallet() {
-  if (state.busy) return;
-  state.busy = true;
-  try {
-    const result = await api('/api/wallet/disconnect', { method: 'POST' });
-    state.data = result;
-    $('withdraw-address').value = '';
-    render();
-    toast('Wallet disconnected. Your Active balance is unchanged.');
-  } catch {
-    toast('Could not disconnect right now.', true);
-  } finally {
-    state.busy = false;
   }
 }
 
@@ -604,8 +546,6 @@ function wireEvents() {
   $('back-btn').addEventListener('click', () => showView('home'));
   $('withdraw-open').addEventListener('click', openSheet);
   $('withdraw-form').addEventListener('submit', submitWithdrawal);
-  $('wallet-form').addEventListener('submit', connectWallet);
-  $('wallet-disconnect').addEventListener('click', disconnectWallet);
   $('support-form').addEventListener('submit', sendSupport);
   $('copy-code').addEventListener('click', copyCode);
   $('share-code').addEventListener('click', shareCode);
