@@ -119,7 +119,14 @@ function resolveIdentity(req, url) {
   const initData = String(req.headers['x-telegram-init-data'] || url.searchParams.get('initData') || '');
   if (BOT_TOKEN) {
     const result = verifyInitData(initData, BOT_TOKEN);
-    if (!result.ok) return { ok: false, error: result.error };
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: result.error,
+        initDataLength: initData.length,
+        diagnostics: result.diagnostics || null,
+      };
+    }
     return { ok: true, profile: result.user, startParam: result.startParam, preview: false };
   }
   return {
@@ -139,10 +146,20 @@ function resolveIdentity(req, url) {
 function requireUser(req, url, res) {
   const identity = resolveIdentity(req, url);
   if (!identity.ok) {
+    console.warn(
+      `[auth] rejected reason=${identity.error} initDataLen=${identity.initDataLength || 0}` +
+        ` fields=${(identity.diagnostics?.fields || []).join(',') || '-'}` +
+        ` hasSignature=${Boolean(identity.diagnostics?.hasSignature)}`,
+    );
     sendJson(res, 401, {
       ok: false,
       error: identity.error,
-      message: 'Open COINVERA from inside Telegram so your account can be verified.',
+      initDataPresent: (identity.initDataLength || 0) > 0,
+      diagnostics: identity.diagnostics || null,
+      message:
+        identity.error === 'init_data_missing'
+          ? 'Open COINVERA from inside Telegram so your account can be verified.'
+          : 'Telegram sign-in could not be verified. Close the app and open it again from the bot button.',
     });
     return null;
   }
