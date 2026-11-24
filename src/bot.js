@@ -19,8 +19,6 @@ const MENU = {
   balance: '💰 Balance',
   profile: '👤 Profile',
   connect: '🔗 Connect Wallet',
-  walletinfo: '📊 Wallet Information',
-  help: '🆘 Help',
 };
 
 // The Mini App launcher sits inside the persistent keyboard, so the menu and the
@@ -31,7 +29,6 @@ function menuKeyboard(url) {
   if (url && url.startsWith('https://')) rows.push([{ text: '🚀 OPEN COINVERA', web_app: { url } }]);
   rows.push([{ text: MENU.home }, { text: MENU.balance }]);
   rows.push([{ text: MENU.profile }, { text: MENU.connect }]);
-  rows.push([{ text: MENU.walletinfo }, { text: MENU.help }]);
   return { keyboard: rows, resize_keyboard: true, is_persistent: true };
 }
 
@@ -63,7 +60,7 @@ const WALLET_CONTINUE_TEXT = [
   'Open your wallet app (Trust Wallet, MetaMask, Tonkeeper, Ledger and so on), choose the account you want to use, tap <b>Receive</b> and copy the address shown. That string is public information.',
   '',
   '<b>Step 2 · Add it to COINVERA</b>',
-  'Open the Mini App → <b>Wallet</b> → paste the address → <b>Connect wallet</b>. The address is validated and stored against your Telegram account only.',
+  'Send that public address here in the bot. It is validated and stored against your Telegram account only — wallet linking is never done inside the Mini App.',
   '',
   '<b>Step 3 · Confirm it is yours</b>',
   'Check the last 4 characters of the stored address against your wallet app. If they differ, remove it and paste again.',
@@ -306,34 +303,6 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     ].join('\n'), { reply_markup: webAppButton('👤 Open profile') });
   }
 
-  async function handleWalletInformation(chatId) {
-    await sendMessage(chatId, [
-      '📊 <b>Wallet Information</b>',
-      '',
-      '<b>What COINVERA stores</b>',
-      '• your public wallet address',
-      '• the network it belongs to',
-      '• the date you linked it',
-      '',
-      '<b>What COINVERA never stores</b>',
-      '• private keys',
-      '• passwords, PINs or 2FA codes',
-      '• recovery phrases',
-      '• any ability to sign transactions for you',
-      '',
-      '<b>What your address can and cannot do</b>',
-      'A public address can receive funds and be looked up on a block explorer. It cannot move funds. Sharing it is like sharing an account number, not a password.',
-      '',
-      '<b>Removing it</b>',
-      'Open the Mini App → Wallet → Disconnect. The address is deleted immediately and your balance stays untouched.',
-      '',
-      '<b>Verify before you trust</b>',
-      'Compare the last 4 characters of the stored address with your wallet app. If anything differs, disconnect and link again.',
-      '',
-      '⚠️ No COINVERA process will ever ask for a private key or recovery phrase. Treat any such request as theft.',
-    ].join('\n'), { reply_markup: webAppButton('📊 Open wallet page') });
-  }
-
   async function handleConnectWallet(chatId) {
     await sendMessage(chatId, WALLET_SECURITY_TEXT, {
       reply_markup: { inline_keyboard: [[{ text: '✅ Continue', callback_data: 'wallet:continue' }]] },
@@ -342,30 +311,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
 
   async function handleWalletContinue(chatId, callbackId) {
     await api('answerCallbackQuery', { callback_query_id: callbackId, text: 'Here is how a secure connection works' });
-    await sendMessage(chatId, WALLET_CONTINUE_TEXT, { reply_markup: webAppButton('🔐 Open wallet page') });
-  }
-
-  async function handleHelp(chatId) {
-    await sendMessage(chatId, [
-      '🆘 <b>Help & Support</b>',
-      '',
-      '<b>Menu</b>',
-      '🏠 Home — balance snapshot and shortcuts',
-      '💰 Balance — Active balance and recent activity',
-      '👤 Profile — your account and referral code',
-      '🔗 Connect Wallet — how read-only linking works',
-      '📊 Wallet Information — what is stored and what is not',
-      '',
-      '<b>Need a human?</b>',
-      'Send any message here and it is filed as a support ticket. The COINVERA team replies inside Telegram.',
-      '',
-      '<b>Common questions</b>',
-      `• Active is a reward unit, not fiat currency, and becomes withdrawable from ${MIN_WITHDRAWAL.toLocaleString('en-US')} ${UNIT}.`,
-      '• Tasks pay Active Points once each — duplicate claims are blocked automatically.',
-      '• Referral rewards are credited only for genuinely new Telegram accounts.',
-      '',
-      '⚠️ Support will never ask for your private key, password or recovery phrase.',
-    ].join('\n'), { reply_markup: webAppButton('🆘 Open help') });
+    await sendMessage(chatId, WALLET_CONTINUE_TEXT);
   }
 
   async function handleAdmin(chatId, from) {
@@ -411,14 +357,6 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     }
     if (normalized === 'connect wallet' || normalized === 'connect' || normalized === 'wallet') {
       await handleConnectWallet(chatId);
-      return true;
-    }
-    if (normalized === 'wallet information' || normalized === 'wallet info') {
-      await handleWalletInformation(chatId);
-      return true;
-    }
-    if (normalized === 'help' || normalized === 'support') {
-      await handleHelp(chatId);
       return true;
     }
     if (normalized === 'admin' || normalized === 'dashboard') {
@@ -484,7 +422,6 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     const data = query.data || '';
     if (!chatId) return;
     if (data === 'wallet:continue') return handleWalletContinue(chatId, query.id);
-    if (data === 'wallet:info') return handleWalletInformation(chatId);
     if (data === 'menu:home') return handleHome(chatId, query.from);
     if (data === 'menu:balance') return handleBalance(chatId, query.from);
     await api('answerCallbackQuery', { callback_query_id: query.id });
@@ -503,7 +440,6 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
       { command: 'balance', description: 'Active balance' },
       { command: 'profile', description: 'Your profile' },
       { command: 'connect', description: 'Connect wallet securely' },
-      { command: 'help', description: 'Help and support' },
     ];
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       const me = await api('getMe', {});
