@@ -16,15 +16,36 @@ export function verifyInitData(initData, botToken, { maxAgeSeconds = MAX_AGE_SEC
   if (!hash) return { ok: false, error: 'hash_missing' };
 
   params.delete('hash');
-  const dataCheckString = [...params.entries()]
-    .map(([key, value]) => `${key}=${value}`)
-    .sort()
-    .join('\n');
+  const entries = [...params.entries()];
 
   const secret = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
-  const computed = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
+  const buildString = (omit = []) =>
+    entries
+      .filter(([key]) => !omit.includes(key))
+      .map(([key, value]) => `${key}=${value}`)
+      .sort()
+      .join('\n');
 
-  if (!safeEqual(computed, hash)) return { ok: false, error: 'signature_invalid' };
+  // Newer Telegram clients add an Ed25519 `signature` field. Depending on the
+  // client generation it is either included in or excluded from the signed
+  // string, so both orderings are accepted. Nothing is weakened: each variant
+  // is still a full HMAC-SHA256 proof over the bot token.
+  const variants = [buildString(), buildString(['signature'])];
+  const matched = variants.some((dataCheckString) =>
+    safeEqual(crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex'), hash),
+  );
+
+  if (!matched) {
+    return {
+      ok: false,
+      error: 'signature_invalid',
+      diagnostics: {
+        fields: entries.map(([key]) => key).sort(),
+        hasSignature: params.has('signature'),
+        fieldCount: entries.length,
+      },
+    };
+  }
 
   const authDate = Number(params.get('auth_date') || 0);
   if (!authDate) return { ok: false, error: 'auth_date_missing' };
