@@ -624,11 +624,23 @@ async function boot() {
   } catch (error) {
     $('loading').classList.add('hidden');
     $('auth-error').classList.remove('hidden');
+    const detail = error.data || {};
+    const reason = detail.error || error.message || 'unknown';
     if (error.status === 401) {
-      $('auth-error-text').textContent = 'COINVERA verifies every account with Telegram. Open the app from the bot button to continue.';
+      $('auth-error-text').textContent =
+        detail.message || 'COINVERA verifies every account with Telegram. Open the app from the bot button to continue.';
     } else {
       $('auth-error-text').textContent = 'The service is temporarily unavailable. Please reopen the app in a moment.';
     }
+    const reasonEl = $('auth-error-reason');
+    if (reasonEl) {
+      const fields = detail.diagnostics && detail.diagnostics.fields && detail.diagnostics.fields.length
+        ? ` \u00b7 fields: ${detail.diagnostics.fields.join(', ')}`
+        : '';
+      reasonEl.textContent = `Reason: ${reason}${fields}`;
+    }
+    const retry = $('auth-retry');
+    if (retry) retry.addEventListener('click', () => window.location.reload());
   }
 }
 
