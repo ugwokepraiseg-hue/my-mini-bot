@@ -49,16 +49,22 @@ function publicOrigin(req) {
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || '');
   if (!host) return null;
   if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/i.test(host)) return null;
-  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
-  return `${proto}://${host}`;
+  // Telegram refuses to open a Mini App over http://, and the platform terminates
+  // TLS in front of us, so a public host is always advertised as https.
+  return `https://${host}`;
 }
 
+// Last-resort public address: a fresh database has not seen a request yet, and a
+// web_app button pointing at localhost is exactly what makes Telegram refuse to
+// open the Mini App. Override it with WEBAPP_URL (or PUBLIC_URL) at any time.
+const DEFAULT_WEBAPP_URL = 'https://to8bdtjvqf.dev.onappjet.com';
+
 function getWebAppUrl() {
-  const configured = (process.env.WEBAPP_URL || '').trim();
-  if (configured) return configured.replace(/\/$/, '');
+  const configured = (process.env.WEBAPP_URL || process.env.PUBLIC_URL || '').trim();
+  if (configured) return configured.replace(/\/+$/, '');
   const observed = kvGet('public_origin');
-  if (observed) return observed;
-  return `http://localhost:${PORT}`;
+  if (observed && observed.startsWith('https://')) return observed.replace(/\/+$/, '');
+  return DEFAULT_WEBAPP_URL;
 }
 
 function rememberOrigin(req) {
@@ -182,6 +188,7 @@ async function handleApi(req, res, url) {
       botConfigured: Boolean(BOT_TOKEN),
       preview: PREVIEW_MODE,
       unit: UNIT,
+      webAppUrl: getWebAppUrl(),
       bot: bot ? bot.getStatus() : { polling: false, username: null, error: null },
       time: new Date().toISOString(),
     });

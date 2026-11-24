@@ -23,15 +23,17 @@ const MENU = {
   help: '🆘 Help',
 };
 
-const KEYBOARD = {
-  keyboard: [
-    [{ text: MENU.home }, { text: MENU.balance }],
-    [{ text: MENU.profile }, { text: MENU.connect }],
-    [{ text: MENU.walletinfo }, { text: MENU.help }],
-  ],
-  resize_keyboard: true,
-  is_persistent: true,
-};
+// The Mini App launcher sits inside the persistent keyboard, so the menu and the
+// OPEN COINVERA button arrive together in one message. Telegram only accepts an
+// https URL for a web_app button, so the row is omitted when no public URL exists.
+function menuKeyboard(url) {
+  const rows = [];
+  if (url && url.startsWith('https://')) rows.push([{ text: '🚀 OPEN COINVERA', web_app: { url } }]);
+  rows.push([{ text: MENU.home }, { text: MENU.balance }]);
+  rows.push([{ text: MENU.profile }, { text: MENU.connect }]);
+  rows.push([{ text: MENU.walletinfo }, { text: MENU.help }]);
+  return { keyboard: rows, resize_keyboard: true, is_persistent: true };
+}
 
 const WALLET_SECURITY_TEXT = [
   '🔐 <b>Secure wallet connection</b>',
@@ -93,7 +95,11 @@ const WELCOME_TEXT = [
 
 export function createBot({ token, getWebAppUrl, log = console.log }) {
   const base = `https://api.telegram.org/bot${token}`;
-  let offset = 0;
+  // Resuming from the stored offset is what stops a restart or redeploy from
+  // replaying updates that were already answered — the classic cause of a button
+  // producing the same reply twice.
+  let offset = Number(kvGet('tg_offset') || 0) || 0;
+  const seenUpdates = new Set();
   let running = false;
   let botUsername = kvGet('bot_username') || null;
   let identityError = null;
@@ -143,6 +149,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
 
   const webAppUrl = () => getWebAppUrl();
   const webAppButton = (label = '🚀 OPEN COINVERA') => ({ inline_keyboard: [[{ text: label, web_app: { url: webAppUrl() } }]] });
+  const keyboard = () => menuKeyboard(webAppUrl());
 
   async function sendMessage(chatId, text, extra = {}) {
     return api('sendMessage', {
@@ -189,34 +196,32 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     const result = await register(message.from, payload || null);
     const user = result.user;
 
-    await sendMessage(chatId, WELCOME_TEXT, { reply_markup: KEYBOARD });
-
+    // One reply per press: the welcome copy, the activation result and the menu
+    // travel in a single message instead of arriving as two separate bubbles.
+    const lines = [WELCOME_TEXT, ''];
     if (result.isNew) {
-      await sendMessage(chatId, [
+      lines.push(
         '🎉 <b>Congratulations, your account is activated!</b>',
-        '',
         `A welcome balance of <b>${result.bonus.toLocaleString('en-US')} ${UNIT}</b> has been added to your COINVERA account.`,
-        '',
-        `💎 Active balance: <b>${Number(user.active_balance).toLocaleString('en-US', { minimumFractionDigits: 2 })} ${UNIT}</b>`,
-        `🆔 Telegram ID: <code>${escapeHtml(String(user.telegram_id))}</code>`,
-        `🔑 Referral code: <code>${user.referral_code}</code>`,
-        '',
-        'Active is your reward balance: it becomes withdrawable once you meet the activity requirement, and payout requests are reviewed before they are sent to your connected wallet.',
-        '',
-        'Open COINVERA to explore tasks, referrals and your wallet.',
-      ].join('\n'), { reply_markup: webAppButton() });
+      );
     } else {
-      await sendMessage(chatId, [
-        '👋 <b>Welcome back to COINVERA</b>',
-        '',
-        `💎 Active balance: <b>${Number(user.active_balance).toLocaleString('en-US', { minimumFractionDigits: 2 })} ${UNIT}</b>`,
-        `⭐ Active Points: <b>${user.points.toLocaleString('en-US')}</b>`,
-        `🔑 Referral code: <code>${user.referral_code}</code>`,
-        '',
-        'Your dashboard is one tap away.',
-      ].join('\n'), { reply_markup: webAppButton() });
+      lines.push('👋 <b>Welcome back to COINVERA</b>');
     }
+    lines.push(
+      '',
+      `💎 Active balance: <b>${Number(user.active_balance).toLocaleString('en-US', { minimumFractionDigits: 2 })} ${UNIT}</b>`,
+      `⭐ Active Points: <b>${user.points.toLocaleString('en-US')}</b>`,
+      `🆔 Telegram ID: <code>${escapeHtml(String(user.telegram_id))}</code>`,
+      `🔑 Referral code: <code>${user.referral_code}</code>`,
+      '',
+      'Active is your reward balance: it becomes withdrawable once you meet the activity requirement, and payout requests are reviewed before they are sent to your connected wallet.',
+    );
 
+    const text = lines.join('\n');
+    const sent = await sendMessage(chatId, text, { reply_markup: keyboard() });
+    // Some older clients reject a web_app button inside a reply keyboard; fall back
+    // to the inline launcher so the message always arrives.
+    if (!sent.ok) await sendMessage(chatId, text, { reply_markup: webAppButton() });
     await ensureMenuButton(chatId);
   }
 
@@ -376,6 +381,9 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     if (normalized === 'wallet information' || normalized === 'wallet info') return handleWalletInformation(chatId);
     if (normalized === 'help' || normalized === 'support') return handleHelp(chatId);
     if (normalized === 'admin' || normalized === 'dashboard') return handleAdmin(chatId, from);
+    if (normalized === 'open coinvera' || normalized === 'open app' || normalized === 'launch') {
+      return sendMessage(chatId, '🚀 Tap below to launch COINVERA.', { reply_markup: webAppButton() });
+    }
     return null;
   }
 
@@ -404,7 +412,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
       const handled = await routeMenu(chatId, from, command);
       if (handled) return;
       if (command === 'admin') return handleAdmin(chatId, from);
-      await sendMessage(chatId, 'Use the menu buttons below, or tap OPEN COINVERA to launch the app.', { reply_markup: KEYBOARD });
+      await sendMessage(chatId, 'Use the menu buttons below, or tap OPEN COINVERA to launch the app.', { reply_markup: keyboard() });
       return;
     }
 
@@ -422,7 +430,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
           escapeHtml(text.slice(0, 1500)),
         ].join('\n')).catch(() => {});
       }
-      await sendMessage(chatId, '✅ <b>Message received</b>\n\nYour message is filed with the COINVERA support team. We reply here in Telegram.\n\n⚠️ Never send private keys, passwords or recovery phrases — support will never ask for them.', { reply_markup: KEYBOARD });
+      await sendMessage(chatId, '✅ <b>Message received</b>\n\nYour message is filed with the COINVERA support team. We reply here in Telegram.\n\n⚠️ Never send private keys, passwords or recovery phrases — support will never ask for them.', { reply_markup: keyboard() });
     }
   }
 
@@ -485,6 +493,9 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
           continue;
         }
         log(`[bot] polling started as @${botUsername}`);
+        // A webhook left behind by another host would compete for these updates.
+        const hook = await api('deleteWebhook', { drop_pending_updates: false });
+        if (hook.ok) log('[bot] webhook cleared — this deployment owns the updates');
       }
       const response = await api('getUpdates', { offset, timeout: 25, allowed_updates: ['message', 'callback_query'] }, 35000);
       if (!response.ok) {
@@ -492,12 +503,18 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
         continue;
       }
       for (const update of response.result || []) {
-        offset = update.update_id + 1;
+        const updateId = update.update_id;
+        offset = updateId + 1;
+        // Answer every update exactly once, even if Telegram re-delivers it.
+        if (seenUpdates.has(updateId)) continue;
+        seenUpdates.add(updateId);
+        if (seenUpdates.size > 400) seenUpdates.delete(seenUpdates.values().next().value);
         try {
           await handleUpdate(update);
         } catch (error) {
           log(`[bot] handler error: ${error.message}`);
         }
+        kvSet('tg_offset', offset);
       }
     }
   }
