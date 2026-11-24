@@ -232,6 +232,9 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
       `🔑 Referral code: <code>${user.referral_code}</code>`,
       '',
       'Active is your reward balance: it becomes withdrawable once you meet the activity requirement, and payout requests are reviewed before they are sent to your connected wallet.',
+      '',
+      `🔗 <b>Open COINVERA:</b> <a href="${webAppUrl()}">${webAppUrl()}</a>`,
+      '<i>If the button does not open, tap the link above — it works in every Telegram version.</i>',
     );
 
     const text = lines.join('\n');
