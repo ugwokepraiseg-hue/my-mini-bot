@@ -55,9 +55,24 @@ function readInitData() {
   return new URLSearchParams(window.location.search).get('initData') || '';
 }
 
+function deviceId() {
+  const key = 'coinvera_device';
+  let id = '';
+  try { id = localStorage.getItem(key) || ''; } catch { /* storage blocked */ }
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(id)) {
+    const raw = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `dev${Date.now()}${Math.random().toString(16).slice(2)}`;
+    id = raw.replace(/[^A-Za-z0-9-]/g, '').slice(0, 64);
+    try { localStorage.setItem(key, id); } catch { /* storage blocked */ }
+  }
+  return id;
+}
+
 async function api(path, { method = 'GET', body } = {}) {
   const headers = { 'content-type': 'application/json' };
   if (state.initData) headers['x-telegram-init-data'] = state.initData;
+  else headers['x-coinvera-guest'] = deviceId();
   const response = await fetch(path, {
     method,
     headers,
@@ -618,10 +633,24 @@ async function boot() {
     state.data = data;
     $('loading').classList.add('hidden');
     $('views').classList.remove('hidden');
+    if (data.guest) {
+      const banner = $('guest-banner');
+      if (banner) banner.classList.remove('hidden');
+    }
     render();
     const fromHash = window.location.hash.replace(/^#/, '');
     showView(TABS.concat(['referral', 'activity', 'walletinfo', 'help']).includes(fromHash) ? fromHash : 'home', { push: false });
   } catch (error) {
+    if (error.status === 401 && state.initData && !boot.guestRetry) {
+      // Telegram sign-in could not be verified (for example the bot domain is
+      // not registered in BotFather yet). Fall back to a device-scoped guest
+      // session so the app still opens instead of dead-ending on one screen.
+      boot.guestRetry = true;
+      state.initData = '';
+      $('auth-error').classList.add('hidden');
+      $('loading').classList.remove('hidden');
+      return boot();
+    }
     $('loading').classList.add('hidden');
     $('auth-error').classList.remove('hidden');
     const detail = error.data || {};

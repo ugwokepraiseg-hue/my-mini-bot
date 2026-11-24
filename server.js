@@ -115,11 +115,19 @@ function readJson(req, limit = 64 * 1024) {
   });
 }
 
+const GUEST_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
+
 function resolveIdentity(req, url) {
   const initData = String(req.headers['x-telegram-init-data'] || url.searchParams.get('initData') || '');
+  const guestKey = String(req.headers['x-coinvera-guest'] || url.searchParams.get('guest') || '');
+  const guest = GUEST_PATTERN.test(guestKey);
+
   if (BOT_TOKEN) {
-    const result = verifyInitData(initData, BOT_TOKEN);
-    if (!result.ok) {
+    const result = initData ? verifyInitData(initData, BOT_TOKEN) : { ok: false, error: 'init_data_missing' };
+    if (result.ok) {
+      return { ok: true, profile: result.user, startParam: result.startParam, preview: false, guest: false };
+    }
+    if (!guest) {
       return {
         ok: false,
         error: result.error,
@@ -127,11 +135,30 @@ function resolveIdentity(req, url) {
         diagnostics: result.diagnostics || null,
       };
     }
-    return { ok: true, profile: result.user, startParam: result.startParam, preview: false };
+  }
+
+  // Fallback: a device-scoped guest account. Guest ids live in their own
+  // `guest:` namespace, so they can never collide with a real Telegram id and
+  // can never be treated as an admin.
+  if (guest) {
+    return {
+      ok: true,
+      preview: false,
+      guest: true,
+      startParam: url.searchParams.get('startapp'),
+      profile: {
+        id: `guest:${guestKey}`,
+        first_name: 'Guest',
+        last_name: 'User',
+        username: null,
+        language_code: 'en',
+      },
+    };
   }
   return {
     ok: true,
     preview: true,
+    guest: false,
     startParam: url.searchParams.get('startapp'),
     profile: {
       id: '0',
@@ -167,7 +194,7 @@ function requireUser(req, url, res) {
     referralCode: identity.startParam,
     isAdmin: identity.preview,
   });
-  return { user, preview: identity.preview };
+  return { user, preview: identity.preview, guest: Boolean(identity.guest) };
 }
 
 function sessionPayload(user, preview) {
@@ -176,6 +203,7 @@ function sessionPayload(user, preview) {
   return {
     ok: true,
     preview,
+    guest: String(user.telegram_id).startsWith('guest:'),
     user: publicUser(user),
     tasks: listTasks(user.id),
     activity: getActivity(user.id, 30),
