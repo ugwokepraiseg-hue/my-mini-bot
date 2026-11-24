@@ -46,7 +46,7 @@ const WALLET_SECURITY_TEXT = [
   '',
   '3️⃣ COINVERA stores only that address, so your Active rewards are linked to you and payout requests reach the right wallet.',
   '',
-  '4️⃣ No transaction can be signed from COINVERA, and you can disconnect the address at any time from <b>Wallet → Disconnect</b>.',
+  '4️⃣ No transaction can be signed from COINVERA. Wallet linking happens <b>only here in this bot</b> — the Mini App has no wallet connection at all — and you can ask us to remove the address at any time.',
   '',
   '🚫 <b>COINVERA never stores or requests:</b>',
   '• your private key',
