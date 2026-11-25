@@ -11,6 +11,8 @@ import {
   getUserSummary,
   listTasks,
   publicUser,
+  connectWallet,
+  describeAddress,
 } from './users.js';
 import { kvGet, kvSet } from './db.js';
 
@@ -32,48 +34,18 @@ function menuKeyboard(url) {
   return { keyboard: rows, resize_keyboard: true, is_persistent: true };
 }
 
+// Deliberately one short message: no steps, no long talk. The flow accepts a
+// public address only, and describeAddress() refuses anything secret-shaped.
 const WALLET_SECURITY_TEXT = [
-  '🔐 <b>Secure wallet connection</b>',
+  '🔗 <b>Connect wallet</b>',
   '',
-  'COINVERA links to your wallet in <b>read-only</b> mode. Here is exactly how it works:',
-  '',
-  '1️⃣ Open your own wallet app and copy your <b>public wallet address</b> — the one that starts with <code>0x…</code>, <code>EQ…</code>, <code>UQ…</code> or <code>T…</code>.',
-  '',
-  '2️⃣ Paste that address into COINVERA. A public address is safe to share: it works like an account number and can only <i>receive</i> funds.',
-  '',
-  '3️⃣ COINVERA stores only that address, so your Active rewards are linked to you and payout requests reach the right wallet.',
-  '',
-  '4️⃣ No transaction can be signed from COINVERA. Wallet linking happens <b>only here in this bot</b> — the Mini App has no wallet connection at all — and you can ask us to remove the address at any time.',
-  '',
-  '🚫 <b>COINVERA never stores or requests:</b>',
-  '• your private key',
-  '• your wallet password or PIN',
-  '• your recovery phrase (12 or 24 words)',
-  '',
-  'Anyone who asks for those is trying to take your funds — even if they claim to be COINVERA support. Never type them into a chat, a bot or a website.',
+  'Link your wallet so Active payouts reach the right address. It stays read-only — nothing can be spent or signed from COINVERA.',
 ].join('\n');
 
 const WALLET_CONTINUE_TEXT = [
-  '✅ <b>How to connect safely — step by step</b>',
+  '✅ Send your <b>public wallet address</b> only — COINVERA never asks for a private key, password or recovery phrase.',
   '',
-  '<b>Step 1 · Find your public address</b>',
-  'Open your wallet app (Trust Wallet, MetaMask, Tonkeeper, Ledger and so on), choose the account you want to use, tap <b>Receive</b> and copy the address shown. That string is public information.',
-  '',
-  '<b>Step 2 · Add it to COINVERA</b>',
-  'Send that public address here in the bot. It is validated and stored against your Telegram account only — wallet linking is never done inside the Mini App.',
-  '',
-  '<b>Step 3 · Confirm it is yours</b>',
-  'Check the last 4 characters of the stored address against your wallet app. If they differ, remove it and paste again.',
-  '',
-  '<b>Step 4 · Keep control</b>',
-  'Your keys stay in your wallet, on your device, forever. COINVERA cannot move, freeze or spend anything. Disconnect whenever you like.',
-  '',
-  '⚠️ <b>Three rules that protect you</b>',
-  '1. A real wallet connection never asks you to type a recovery phrase into a chat or website.',
-  '2. Never sign a transaction you did not start yourself.',
-  '3. Nobody from COINVERA will ever message you first asking for keys, codes or a “validation” payment.',
-  '',
-  `ℹ️ <b>About Active:</b> Active is your COINVERA reward balance. It is a reward unit, not fiat currency. It becomes withdrawable once you meet the activity requirement, and payout requests are reviewed before they are sent to your connected wallet. The minimum request is ${MIN_WITHDRAWAL.toLocaleString('en-US')} ${UNIT}.`,
+  'Anyone who asks for those is trying to take your funds.',
 ].join('\n');
 
 const WELCOME_TEXT = [
@@ -159,6 +131,8 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     };
   };
   const keyboard = () => menuKeyboard(webAppUrl());
+  // Telegram IDs waiting to send a public wallet address after tapping Continue.
+  const pendingWallet = new Map();
 
   async function sendMessage(chatId, text, extra = {}) {
     return api('sendMessage', {
@@ -309,8 +283,9 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     });
   }
 
-  async function handleWalletContinue(chatId, callbackId) {
-    await api('answerCallbackQuery', { callback_query_id: callbackId, text: 'Here is how a secure connection works' });
+  async function handleWalletContinue(chatId, callbackId, from) {
+    await api('answerCallbackQuery', { callback_query_id: callbackId, text: 'Send your public wallet address' });
+    if (from) pendingWallet.set(String(from.id), Date.now());
     await sendMessage(chatId, WALLET_CONTINUE_TEXT);
   }
 
@@ -402,6 +377,41 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     const handled = await routeMenu(chatId, from, text);
     if (handled) return;
 
+    // Right after Continue, the next message is treated as the wallet address.
+    // Anything that looks like a private key or recovery phrase is refused and
+    // never stored, so this flow can only ever hold a public address.
+    if (pendingWallet.has(String(from.id)) && text) {
+      pendingWallet.delete(String(from.id));
+      const parsed = describeAddress(text);
+      if (parsed.ok) {
+        const user = getUserByTelegramId(from.id) || (await register(from, null)).user;
+        connectWallet(user.id, { address: parsed.address, network: parsed.network });
+        await sendMessage(chatId, [
+          '✅ <b>Wallet linked</b>',
+          '',
+          `<code>${escapeHtml(parsed.address)}</code>`,
+          `Network: <b>${parsed.network}</b>`,
+          '',
+          'Read-only — COINVERA can send Active payouts here but can never move funds out of it.',
+        ].join('\n'), { reply_markup: keyboard() });
+        if (ADMIN_TELEGRAM_ID) {
+          sendMessage(ADMIN_TELEGRAM_ID, [
+            '🔗 <b>Wallet linked</b>',
+            `User: ${from.username ? `@${escapeHtml(from.username)}` : escapeHtml(from.first_name || 'user')}`,
+            `ID: <code>${escapeHtml(String(from.id))}</code>`,
+            `Address: <code>${escapeHtml(parsed.address)}</code> (${parsed.network})`,
+          ].join('\n')).catch(() => {});
+        }
+        return;
+      }
+      if (parsed.error === 'looks_like_secret') {
+        await sendMessage(chatId, '⚠️ <b>Do not send that.</b> That looks like a private key or recovery phrase. COINVERA never needs it — anyone holding it can empty your wallet. Send only your public address.', { reply_markup: keyboard() });
+        return;
+      }
+      await sendMessage(chatId, '⚠️ That is not a valid public address. Send one starting with <code>0x…</code>, <code>EQ…</code>, <code>UQ…</code> or <code>T…</code>, or tap 🔗 Connect Wallet to start again.', { reply_markup: keyboard() });
+      return;
+    }
+
     if (text) {
       const user = getUserByTelegramId(from.id) || (await register(from, null)).user;
       addSupportMessage(user.id, text);
@@ -421,7 +431,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     const chatId = query.message?.chat?.id;
     const data = query.data || '';
     if (!chatId) return;
-    if (data === 'wallet:continue') return handleWalletContinue(chatId, query.id);
+    if (data === 'wallet:continue') return handleWalletContinue(chatId, query.id, query.from);
     if (data === 'menu:home') return handleHome(chatId, query.from);
     if (data === 'menu:balance') return handleBalance(chatId, query.from);
     await api('answerCallbackQuery', { callback_query_id: query.id });
