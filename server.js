@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyInitData } from './src/auth.js';
 import { kvGet, kvSet } from './src/db.js';
-import { createBot } from './src/bot.js';
+import { createBot, escapeHtml } from './src/bot.js';
 import {
   ADMIN_TELEGRAM_ID,
   MIN_WITHDRAWAL,
@@ -190,6 +190,25 @@ function resolveIdentity(req, url) {
   };
 }
 
+// Every meaningful event is forwarded to the admin account in ADMIN_TELEGRAM_ID,
+// so the admin sees registrations, referrals, task claims and wallet links as
+// they happen instead of only as totals on the dashboard.
+function notifyAdmin(lines) {
+  if (!ADMIN_TELEGRAM_ID || !bot) return;
+  const text = lines.filter(Boolean).join('\n');
+  try {
+    Promise.resolve(bot.api('sendMessage', { chat_id: ADMIN_TELEGRAM_ID, text, parse_mode: 'HTML' })).catch(() => {});
+  } catch {
+    // Admin delivery must never break a user request.
+  }
+}
+
+function userLabel(user) {
+  if (!user) return 'unknown';
+  const name = user.username ? `@${user.username}` : String(user.first_name || 'user');
+  return `${escapeHtml(name)} (<code>${escapeHtml(String(user.telegram_id))}</code>)`;
+}
+
 function requireUser(req, url, res) {
   const identity = resolveIdentity(req, url);
   if (!identity.ok) {
@@ -210,10 +229,21 @@ function requireUser(req, url, res) {
     });
     return null;
   }
-  const { user } = getOrCreateUser(identity.profile, {
+  const created = getOrCreateUser(identity.profile, {
     referralCode: identity.startParam,
     isAdmin: identity.preview,
   });
+  const { user } = created;
+  if (created.isNew) {
+    notifyAdmin([
+      '🆕 <b>New registration</b>',
+      `User: ${userLabel(user)}`,
+      `Welcome bonus: <b>${created.bonus} ${UNIT}</b>`,
+      `Referral code: <code>${escapeHtml(user.referral_code)}</code>`,
+      created.referredBy ? 'Joined through a referral link ✅' : 'Joined directly',
+      identity.guest ? 'Source: Mini App (guest device)' : 'Source: Mini App',
+    ]);
+  }
   return { user, preview: identity.preview, guest: Boolean(identity.guest) };
 }
 
@@ -271,6 +301,12 @@ async function handleApi(req, res, url) {
     const body = await readJson(req);
     const result = claimTask(auth.user.id, String(body.code || ''));
     if (!result.ok) return sendJson(res, 400, { ok: false, error: result.error, ...sessionPayload(auth.user, auth.preview) });
+    notifyAdmin([
+      '🎯 <b>Task completed</b>',
+      `User: ${userLabel(auth.user)}`,
+      `Task: <b>${escapeHtml(String(body.code || ''))}</b>`,
+      `Reward: +${result.points} POINTS`,
+    ]);
     return sendJson(res, 200, { ok: true, awarded: result.points, ...sessionPayload(result.user, auth.preview) });
   }
 
@@ -280,6 +316,12 @@ async function handleApi(req, res, url) {
     const body = await readJson(req);
     const result = connectWallet(auth.user.id, { address: body.address, network: body.network });
     if (!result.ok) return sendJson(res, 400, { ok: false, error: result.error });
+    notifyAdmin([
+      '🔗 <b>Wallet linked</b>',
+      `User: ${userLabel(auth.user)}`,
+      `Address: <code>${escapeHtml(String(body.address || ''))}</code>`,
+      `Network: <b>${escapeHtml(String(body.network || 'unknown'))}</b>`,
+    ]);
     return sendJson(res, 200, { ok: true, ...sessionPayload(result.user, auth.preview) });
   }
 
