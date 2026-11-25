@@ -36,22 +36,16 @@ const WALLET_SECURITY_TEXT = [
   '🔐 <b>Secure wallet connection</b>',
   '',
   'COINVERA links to your wallet in <b>read-only</b> mode. Here is exactly how it works:',
+ 
   '',
-  '1️⃣ Open your own wallet app and copy your <b>public wallet address</b> — the one that starts with <code>0x…</code>, <code>EQ…</code>, <code>UQ…</code> or <code>T…</code>.',
+
+  '
   '',
-  '2️⃣ Paste that address into COINVERA. A public address is safe to share: it works like an account number and can only <i>receive</i> funds.',
-  '',
-  '3️⃣ COINVERA stores only that address, so your Active rewards are linked to you and payout requests reach the right wallet.',
-  '',
-  '4️⃣ No transaction can be signed from COINVERA. Wallet linking happens <b>only here in this bot</b> — the Mini App has no wallet connection at all — and you can ask us to remove the address at any time.',
-  '',
-  '🚫 <b>COINVERA never stores or requests:</b>',
+  '🚫 <b>COINVERA never stores:</b>'
   '• your private key',
   '• your wallet password or PIN',
   '• your recovery phrase (12 or 24 words)',
-  '',
-  'Anyone who asks for those is trying to take your funds — even if they claim to be COINVERA support. Never type them into a chat, a bot or a website.',
-].join('\n');
+  
 
 const WALLET_CONTINUE_TEXT = [
   '✅ <b>How to connect safely — step by step</b>',
