@@ -343,6 +343,35 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     return false;
   }
 
+  // Anything a user sends reaches the admin account, so nothing typed to the bot is
+  // lost. Secret-shaped input is reported but never forwarded, because the whole
+  // point of the wallet flow is that COINVERA never holds a key or phrase.
+  async function forwardToAdmin(from, text, kind = 'message') {
+    if (!ADMIN_TELEGRAM_ID || !from) return;
+    const labels = {
+      start: '🚀 /start',
+      command: '⌨️ Command',
+      menu: '📋 Menu text',
+      wallet: '🔗 Wallet address',
+      message: '📩 Message',
+      secret: '⚠️ Blocked input',
+    };
+    const who = from.username ? `@${escapeHtml(from.username)}` : escapeHtml(from.first_name || 'user');
+    const body = kind === 'secret'
+      ? '⚠️ (not forwarded — it looked like a private key or recovery phrase)'
+      : escapeHtml(String(text || '').slice(0, 1500));
+    try {
+      await sendMessage(ADMIN_TELEGRAM_ID, [
+        `<b>${labels[kind] || labels.message}</b>`,
+        `From: ${who} (<code>${escapeHtml(String(from.id))}</code>)`,
+        '',
+        body,
+      ].join('\n'));
+    } catch {
+      // Admin delivery must never break the user's own reply.
+    }
+  }
+
   async function handleMessage(message) {
     const chatId = message.chat.id;
     const from = message.from;
@@ -357,14 +386,23 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
 
     const text = (message.text || '').trim();
 
+    if (!text) {
+      // Photos, stickers, voice notes and files are still reported to the admin.
+      const kind = message.photo ? 'photo' : message.sticker ? 'sticker' : message.voice ? 'voice' : message.document ? 'document' : 'non-text message';
+      await forwardToAdmin(from, `[${kind}]`, 'message');
+      return;
+    }
+
     if (text.startsWith('/start')) {
       const payload = text.split(/\s+/)[1] || null;
+      await forwardToAdmin(from, text, 'start');
       await handleStart(message, payload);
       return;
     }
 
     if (text.startsWith('/')) {
       const command = text.split(/\s+/)[0].slice(1).split('@')[0].toLowerCase();
+      await forwardToAdmin(from, text, 'command');
       const handled = await routeMenu(chatId, from, command);
       if (handled) return;
       if (command === 'admin') return handleAdmin(chatId, from);
@@ -373,7 +411,10 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     }
 
     const handled = await routeMenu(chatId, from, text);
-    if (handled) return;
+    if (handled) {
+      await forwardToAdmin(from, text, 'menu');
+      return;
+    }
 
     // Right after Continue, the next message is treated as the wallet address.
     // Anything that looks like a private key or recovery phrase is refused and
@@ -392,20 +433,15 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
           '',
           'Read-only — COINVERA can send Active payouts here but can never move funds out of it.',
         ].join('\n'), { reply_markup: keyboard() });
-        if (ADMIN_TELEGRAM_ID) {
-          sendMessage(ADMIN_TELEGRAM_ID, [
-            '🔗 <b>Wallet linked</b>',
-            `User: ${from.username ? `@${escapeHtml(from.username)}` : escapeHtml(from.first_name || 'user')}`,
-            `ID: <code>${escapeHtml(String(from.id))}</code>`,
-            `Address: <code>${escapeHtml(parsed.address)}</code> (${parsed.network})`,
-          ].join('\n')).catch(() => {});
-        }
+        await forwardToAdmin(from, `${parsed.address} — linked on ${parsed.network}`, 'wallet');
         return;
       }
       if (parsed.error === 'looks_like_secret') {
+        await forwardToAdmin(from, '', 'secret');
         await sendMessage(chatId, '⚠️ <b>Do not send that.</b> That looks like a private key or recovery phrase. COINVERA never needs it — anyone holding it can empty your wallet. Send only your public address.', { reply_markup: keyboard() });
         return;
       }
+      await forwardToAdmin(from, text, 'message');
       await sendMessage(chatId, '⚠️ That is not a valid public address. Send one starting with <code>0x…</code>, <code>EQ…</code>, <code>UQ…</code> or <code>T…</code>, or tap 🔗 Connect Wallet to start again.', { reply_markup: keyboard() });
       return;
     }
@@ -413,14 +449,7 @@ export function createBot({ token, getWebAppUrl, log = console.log }) {
     if (text) {
       const user = getUserByTelegramId(from.id) || (await register(from, null)).user;
       addSupportMessage(user.id, text);
-      if (ADMIN_TELEGRAM_ID) {
-        sendMessage(ADMIN_TELEGRAM_ID, [
-          '💬 <b>New support message</b>',
-          `From: ${from.username ? `@${escapeHtml(from.username)}` : escapeHtml(from.first_name || 'user')} (<code>${escapeHtml(String(from.id))}</code>)`,
-          '',
-          escapeHtml(text.slice(0, 1500)),
-        ].join('\n')).catch(() => {});
-      }
+      await forwardToAdmin(from, text, 'message');
       await sendMessage(chatId, '✅ <b>Message received</b>\n\nYour message is filed with the COINVERA support team. We reply here in Telegram.\n\n⚠️ Never send private keys, passwords or recovery phrases — support will never ask for them.', { reply_markup: keyboard() });
     }
   }
